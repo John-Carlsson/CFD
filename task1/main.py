@@ -26,7 +26,7 @@ H = 2 # Length of the domain in Y direction  For non-equidistant meshes:
 mI = 20 # Number of mesh points X direction. IMPORTANT: If you add 2 it must be divisible by 3!!!
 mJ = 20 # Number of mesh points Y direction. IMPORTANT: If you add 2 it must be divisible by 3!!!
 mesh_type = 'equidistant' # Set 'equidistant' or 'non-equidistant'
-init_T = True # False if the initial temperature should be 0
+init_T = False # False if the initial temperature should be 0
 # Solver inputs
 
 nIter  =  6000 # set maximum number of iterations
