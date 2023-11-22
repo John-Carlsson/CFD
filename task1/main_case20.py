@@ -278,7 +278,6 @@ for iteration in range(nIter):
             dT_dx[i, j] = (T[i+1, j] - T[i-1, j]) / (dx_WP[i, j] + dx_PE[i,j])
             dT_dy[i, j] = (T[i, j+1] - T[i, j-1]) / (dy_SP[i, j]+ dy_PN[i,j])
     
-    # We use numpy to calculate the gradient, it is using second order accurate central differencing
     # Add positive source terms to F and negative to F_out
     for i in range(1,nI-1):
         for j in range(1,nJ-1):
@@ -412,7 +411,7 @@ tempmap=plt.contourf(nodeX.T,nodeY.T,T.T,cmap='coolwarm',levels=30)
 cbar=plt.colorbar(tempmap)
 cbar.set_label('Temperature [K]')
 plt.tight_layout()
-
+plt.show()
 if mesh_type == 'equidistant':
     plt.savefig('task1/Figures/equidistant/temperatureDistribution.png')
 if mesh_type == 'non-equidistant':
@@ -426,6 +425,7 @@ plt.ylabel('Temperature')
 resLength = np.arange(0,len(certain_T),1)
 plt.plot(resLength, certain_T)
 plt.grid()
+plt.show()
 
 if mesh_type == 'equidistant':
     plt.savefig('task1/Figures/equidistant/Certain_T.png')
@@ -441,7 +441,7 @@ resLength = np.arange(0,len(res),1)
 plt.plot(resLength, res)
 plt.grid()
 plt.yscale('log')
-
+plt.show()
 if mesh_type == 'equidistant':
     plt.savefig('task1/Figures/equidistant/residualconvergence.png')
 if mesh_type == 'non-equidistant':
@@ -458,7 +458,7 @@ plt.plot(resLength, F_vals)
 plt.plot(resLength, F_out_vals)
 plt.legend(['F_in', 'F_out'])
 plt.grid()
-
+plt.show()
 
 if mesh_type == 'equidistant':
     plt.savefig('task1/Figures/equidistant/heat_rate.png')
@@ -477,7 +477,7 @@ plt.yscale('log')
 plt.hlines(y = error_vals[-1],xmax=len(error_vals),xmin=0, colors='r', linestyles='dashed')
 plt.grid()
 plt.legend(['Error', 'Error convergence = %.2f%%'%error_vals[-1]], loc='upper right')
-
+plt.show()
 if mesh_type == 'equidistant':
     plt.savefig('task1/Figures/equidistant/heat_rate_error.png')
 if mesh_type == 'non-equidistant':
@@ -500,6 +500,7 @@ plt.quiver(nodeX, nodeY, qX, qY, color="black")
 cbar=plt.colorbar(tempmap)
 cbar.set_label('Temperature [K]')
 plt.tight_layout()
+plt.show()
 if mesh_type == 'equidistant':
     plt.savefig('task1/Figures/equidistant/heatflux.png')
 if mesh_type == 'non-equidistant':
@@ -547,9 +548,8 @@ plt.quiver(nodeX, nodeY, qX, qY, color="black")
 plt.xlim(-0.5*L, 3/2*L)
 plt.ylim(-0.5*H, 3/2*H)
 plt.tight_layout()
+plt.show()
 
-
-plt.tight_layout()
 if mesh_type == 'equidistant':
     plt.savefig('task1/Figures/equidistant/wall_normal_heat_flux.png')
 if mesh_type == 'non-equidistant':
