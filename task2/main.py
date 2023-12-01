@@ -166,20 +166,7 @@ for i in range(1,nI-1):
     for j in range(1,nJ-1):
         pass
 
-# Calculate constant diffusive (D) and convective (F) coefficients
-def interpolate(y1,y2,x1,x2):
-    """" Interpolates
-    Args:
-        y1 : First point y value
-        x1 : First cell width/height
-        y2 : First point y value
-        x2 : Second cell width/height
 
-    Returns:
-        Interpolated value
-    """
-    dx = x2/2 + x1/2
-    return  y1 + (y2-y1)/dx * x1/2
 
 
 for i in range(1,nI-1):
