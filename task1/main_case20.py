@@ -1,3 +1,4 @@
+# %%
 # MTF073 Computational Fluid Dynamics
 # Task 1: 2D diffusion
 # Håkan Nilsson, 2023
@@ -7,7 +8,7 @@
 
 # Clear all variables when running entire code:
 from IPython import get_ipython
-# get_ipython().run_line_magic('reset', '-sf')
+get_ipython().run_line_magic('reset', '-sf')
 # Packages needed
 import numpy as np
 import matplotlib.pyplot as plt
@@ -20,17 +21,17 @@ import os # For saving plots
 #===================== Inputs =====================
 
 # Geometric and mesh inputs
-
 L = 1 # Length of the domain in X direction
 H = 2 # Length of the domain in Y direction  For non-equidistant meshes:
-mI = 40 # Number of mesh points X direction. IMPORTANT: If you add 2 it must be divisible by 3!!!
-mJ = 40 # Number of mesh points Y direction. IMPORTANT: If you add 2 it must be divisible by 3!!!
+mI = 20 # Number of mesh points X direction. 
+mJ = 20 # Number of mesh points Y direction. 
 mesh_type = 'equidistant' # Set 'equidistant' or 'non-equidistant'
-init_T = False # False if the initial temperature should be 0
+init_T = False
+
 # Solver inputs
 
 nIter  =  6000 # set maximum number of iterations
-resTol =  0.001 # set convergence criteria for residuals
+resTol =  0.00000001 # set convergence criteria for residuals
 
 #====================== Code ======================
 
@@ -70,6 +71,8 @@ k_s    = np.zeros((nI,nJ))*nan # Array for conductivity at south face
 res    = []                    # Array for appending residual each iteration
 
 
+
+# %%
 # Generate mesh and compute geometric variables
 
 if mesh_type == 'equidistant':
@@ -80,7 +83,7 @@ if mesh_type == 'equidistant':
             pointY[i,j] = j*H/(mJ - 1)
             
 
-# Smaller to the sides
+# Smaller to the top and bottom, aka the corners
 #   -------------------------
 #   | | | | | | | | | | | | |
 #   -------------------------
@@ -120,6 +123,24 @@ nodeY[:,0] = 0   # Note: corner points needed for contour plot
 nodeX[-1,:] = L  # Note: corner points needed for contour plot
 nodeY[:,-1] = H  # Note: corner points needed for contour plot
 
+
+# %%
+# Plot mesh
+plt.figure()
+plt.xlabel('x [m]')
+plt.ylabel('y [m]')
+plt.title('Computational mesh')
+plt.axis('equal')
+plt.vlines(pointX[:,0],0,H,colors = 'k',linestyles = 'dashed')
+plt.hlines(pointY[0,:],0,L,colors = 'k',linestyles = 'dashed')
+plt.plot(nodeX, nodeY, 'ro')
+plt.savefig('mesh.png')
+plt.tight_layout()
+plt.show()
+
+
+
+# %%
 # Calculate distances
 # Keep 'nan' where values are not needed!
 for i in range(1, nI-1):
@@ -130,7 +151,10 @@ for i in range(1, nI-1):
         dy_SP[i,j] = nodeY[i,j] - nodeY[i,j-1]
         dx_we[i,j] = pointX[i,j] - pointX[i-1,j]
         dy_sn[i,j] = pointY[i,j] - pointY[i,j-1]
+        
 
+
+# %%
 # Initialize dependent variable array and Dirichlet boundary conditions
 # Note that a value is needed in all nodes for contour plot
 # ADD CODE HERE
@@ -146,23 +170,34 @@ for i in range(0,nI):
     T3[i] = 5 + 3*(1 + 5*nodeX[i,j]/L)
     T[i,-1] = T3[i]
 
-# Here we chose to initialize the temperature linearly between the walls
-# g_y = np.linspace(T[i,0], T[i,-1],nJ) # linear T on the given x coordinate from the bottom to the top
-# g_x = np.linspace(T[0,j], T[-1,j],nI) # linear T on the given y coordinate from the bottom to the top
-# for i in range(1,nI-2):
-#     for j in range(1,nJ-2):
-#         T[i,j] = (g_x[i]+g_y[j])/2
+
+if init_T == True:
+    T[0,:] = (T1+T2 + np.mean(T3))/3
+    for i in range(1,nI-1):
+        g_y = np.linspace(T[i,0], T[i,-1],nJ) # linear T on the given x coordinate from the bottom to the top
+        for j in range(1,nJ-1):
+            g_x = np.linspace(T[0,j], T[-1,j],nI) # linear T on the given y coordinate from the bottom to the top
+            T[i,j] = (g_x[i]+g_y[j])/2
 
 
+# Plot temperature contour
+plt.figure()
+plt.title('Temperature distribution')
+plt.xlabel('x [m]')
+plt.ylabel('y [m]')
+plt.axis('equal')
+tempmap=plt.contourf(nodeX.T,nodeY.T,T.T,cmap='coolwarm',levels=30)
+cbar=plt.colorbar(tempmap)
+cbar.set_label('Temperature [K]')
+plt.tight_layout()
+plt.savefig('temp_init.png')
 
-# The following loop is for the linear solver. In the present implementation
-# it includes updates of everything that influences the linear system every
-# iteration. That may not be ideal. It may be beneficial to converge (iterate)
-# the linear solver somewhat before doing the updates. Students that are
-# interested can investigate this matter.
+
+# %%
 
 c1 = 25
 c2 = 0.25
+
 F_vals = []
 F_out_vals = []
 error_vals = []
@@ -175,32 +210,26 @@ for iteration in range(nIter):
     # but keep here if you want to easily test different cases)
     # Keep 'nan' where values are not needed!
     # ADD CODE HERE.
-    q = 1
     # k for cell midpoint
-    for i in range(1,nI-1):
-        for j in range(1, nJ-1):
-            k[i,j] = 16*q*(nodeY[i,j]/H + 30*T[i,j]/T1)
+    for i in range(0,nI):
+        for j in range(0, nJ):
+            k[i,j] = 16*(nodeY[i,j]/H + 30*T[i,j]/T1)
 
     # interpolate to get the surface values for k
     for i in range(1,nI-1):
         for j in range(1,nJ-1):
-            k_e[i,j] = k[i,j] + (k[i+1,j] - k[i,j]) * dx_we[i,j]/((dx_we[i,j] + dx_we[i+1,j]))
-            k_w[i,j] = k[i,j] + (k[i-1,j] - k[i,j]) * dx_we[i,j]/((dx_we[i,j] + dx_we[i-1,j]))
-            k_n[i,j] = k[i,j] + (k[i,j+1] - k[i,j]) * dy_sn[i,j]/((dy_sn[i,j] + dy_sn[i,j+1]))
-            k_s[i,j] = k[i,j] + (k[i,j-1] - k[i,j]) * dy_sn[i,j]/((dy_sn[i,j] + dy_sn[i,j-1]))
+            fxe = dx_we[i,j]/dx_PE[i,j] * 0.5
+            k_e[i,j] = k[i,j]*(1-fxe) +  fxe*k[i+1,j] 
 
-    # For boundary adjacent nodes
-    for i in range(1,nI-1):
-        j = 1 # South
-        k_s[i,j] = 16*q*((nodeY[i,j] - dy_sn[i,j]/2)/H + 30*T[i,j]/T1)
-        j = -2 # North
-        k_n[i,j] = 16*q*((nodeY[i,j] + dy_sn[i,j]/2)/H + 30*T[i,j]/T1)
+            fxw = dx_we[i,j]/dx_WP[i,j] * 0.5
+            k_w[i,j] = k[i,j] *(1-fxw) +  fxw*k[i-1,j] 
 
-    for j in range(1,nJ-1):
-        i = 1 # west
-        k_w[i,j] = 16*q*((nodeY[i,j] - dy_sn[i,j]/2)/H + 30*T[i,j]/T1)
-        i = -2 # east
-        k_e[i,j] = 16*q*((nodeY[i,j] - dy_sn[i,j]/2)/H + 30*T[i,j]/T1)
+            fyn = dy_sn[i,j]/dy_PN[i,j] * 0.5
+            k_n[i,j] = k[i,j] *(1-fyn) +  fyn*k[i,j+1]
+
+            fys = dy_sn[i,j]/dy_SP[i,j] * 0.5
+            k_s[i,j] = k[i,j] *(1-fys) +  fys*k[i,j-1]
+
 
 
     # Update source term array according to your case:
@@ -271,72 +300,71 @@ for iteration in range(nIter):
     dT_dx = np.zeros((nI, nJ))
     dT_dy = np.zeros((nI, nJ))
     # Calculate F_in and F_out from the domain
-
-    # Get the temperature gradient in cells
-    for i in range(1,nI-1):
-        for j in range(1,nJ-1):
-            dT_dx[i, j] = (T[i+1, j] - T[i-1, j]) / (dx_WP[i, j] + dx_PE[i,j])
-            dT_dy[i, j] = (T[i, j+1] - T[i, j-1]) / (dy_SP[i, j]+ dy_PN[i,j])
+    # for i in range(1,nI-1):
+    #     for j in range(1,nJ-1):
+    #         dT_dx[i, j] = (T[i+1, j] - T[i-1, j]) / (dx_WP[i, j] + dx_PE[i,j])
+    #         dT_dy[i, j] = (T[i, j+1] - T[i, j-1]) / (dy_SP[i, j]+ dy_PN[i,j])
     
+    dT_dx,dT_dy = np.gradient(T,nodeX[:,0],nodeY[0,:])
+
     # Add positive source terms to F and negative to F_out
     for i in range(1,nI-1):
         for j in range(1,nJ-1):
-            
             if Sp[i,j]*T[i,j] > 0:
-                F += Sp[i,j]*T[i,j]
+                F += abs(Sp[i,j]*T[i,j])
             else:
-                F_out += Sp[i,j]*T[i,j]
-
+                F_out += abs(Sp[i,j]*T[i,j])
             if Su[i,j] > 0:
-                F += Su[i,j]
+                F += abs(Su[i,j])
             else:
-                F_out += Su[i,j]
+                F_out += abs(Su[i,j])
 
     # Compute energy in and out of the DOMAIN, at the borders.
     for i in range(1,nI-1):
         # South boundary
-        j = 1
-        # Calculate temperature gradient at wall
-        dT_dy_s = (dT_dy[i, j] -  dT_dy[i, j+1])/dy_PN[i,j] * dy_sn[i,j]/2 + dT_dy[i, j]
-        F_s = k_s[i, j] * dx_we[i, j] * dT_dy_s
+        j = 0
+        # interpolate to get the wall temperature gradient
+        dT_dy_s = (dT_dy[i,j] -  dT_dy[i, j+1])/dy_PN[i,j] * dy_SP[i,j] + dT_dy[i, j]
+        F_s = -k[i, j] * dx_we[i, j+1] * dT_dy[i,j]
         if F_s > 0:
-            F += F_s
+            F += abs(F_s)
         else:
             F_out += abs(F_s)
 
         # north boundary
-        j = -2
-        dT_dy_n = (dT_dy[i, j] -  dT_dy[i, j-1])/dy_SP[i,j] *dy_sn[i,j]/2 + dT_dy[i, j]
-        F_n = -k_n[i, j] * dx_we[i, j] * dT_dy_n
-        if F_n > 0:
-            F += F_n
+        j = -1
+        dT_dy_n = (dT_dy[i, j] -  dT_dy[i, j-1])/dy_SP[i,j] * dy_PN[i,j] + dT_dy[i, j]
+        F_n = -k[i, j] * dx_we[i, j-1] * dT_dy[i,j]
+        if F_n < 0:
+            F += abs(F_n)
         else:
             F_out += abs(F_n)
 
     for j in range(1,nJ-1):
         # West boundary
         # due to neuman boundary, no heat transfer happens at the west boundary
-        i = 1
+        i = 0
         dT_dx_w = 0
-        F_w = k_w[i, j] * dy_sn[i, j] * dT_dx_w
+        F_w = k[i, j] * dy_sn[i+1, j] * dT_dx[i,j]
         if F_w > 0:
-            F += F_w
+            F += abs(F_w)
         else:
-            F_out += F_w
+            F_out += abs(F_w)
         # East boundary
-        i = -2
-        dT_dx_e = (dT_dx[i, j] -  dT_dx[i-1, j])/dx_WP[i,j] *dx_we[i,j]/2 + dT_dx[i, j]
-        F_e = -k_e[i, j] * dy_sn[i, j] * dT_dx_e
-        if F_e > 0:
-            F += F_e
+        i = -1
+        dT_dx_e = (dT_dx[i, j] -  dT_dx[i-1, j])/dx_WP[i,j] * dx_PE[i,j] + dT_dx[i, j]
+        F_e = -k[i, j] * dy_sn[i-1, j] * dT_dx[i,j]
+        if F_e < 0:
+            F += abs(F_e)
         else:
             F_out += abs(F_e)
+            
 
             
     
 
     r /= F
-    error = np.abs(F - F_out) / F * 100
+    error = np.abs(F - F_out) / F *100
     if iteration%50 == 0:
         print('iteration: %5d, res = %.5e' % (iteration, r))
         print('Conservation of energy error: %.2f%%' % error, '\n')
@@ -346,8 +374,8 @@ for iteration in range(nIter):
     certain_T.append(T[certain_T_loc])
     error_vals.append(error)
     res.append(r)
-    F_vals.append(F)
-    F_out_vals.append(F_out)
+    F_vals.append(abs(F))
+    F_out_vals.append(abs(F_out))
     
     # Stop iterations if converged:
     if r < resTol:
@@ -356,26 +384,8 @@ for iteration in range(nIter):
         break
 
 
-    
-#================ Plotting section ================
-# (only examples, more plots might be needed)
 
-if not os.path.isdir('Figures'):
-    os.makedirs('Figures')
-
-# Plot mesh
-plt.figure()
-plt.xlabel('x [m]')
-plt.ylabel('y [m]')
-plt.title('Computational mesh')
-plt.axis('equal')
-plt.vlines(pointX[:,0],0,H,colors = 'k',linestyles = 'dashed')
-plt.hlines(pointY[0,:],0,L,colors = 'k',linestyles = 'dashed')
-plt.plot(nodeX, nodeY, 'ro')
-plt.tight_layout()
-plt.show()
-# plt.savefig('Figures/mesh.png')
-
+# %%
 # Plot temperature contour
 plt.figure()
 plt.title('Temperature distribution')
@@ -386,37 +396,14 @@ tempmap=plt.contourf(nodeX.T,nodeY.T,T.T,cmap='coolwarm',levels=30)
 cbar=plt.colorbar(tempmap)
 cbar.set_label('Temperature [K]')
 plt.tight_layout()
-plt.show()
-# plt.savefig('Figures/temperatureDistribution.png')
 
-# Plot residual convergence
-plt.figure()
-plt.title('Residual convergence')
-plt.xlabel('Iterations')
-plt.ylabel('Residuals [-]')
-resLength = np.arange(0,len(res),1)
-plt.plot(resLength, res)
-plt.grid()
-plt.yscale('log')
-plt.show()
-# plt.savefig('Figures/residualConvergence.png')
-
-# Plot temperature contour
-plt.figure()
-plt.title('Temperature distribution')
-plt.xlabel('x [m]')
-plt.ylabel('y [m]')
-plt.axis('equal')
-tempmap=plt.contourf(nodeX.T,nodeY.T,T.T,cmap='coolwarm',levels=30)
-cbar=plt.colorbar(tempmap)
-cbar.set_label('Temperature [K]')
-plt.tight_layout()
-plt.show()
 if mesh_type == 'equidistant':
-    plt.savefig('task1/Figures/equidistant/temperatureDistribution.png')
+    plt.savefig('Figures/equidistant/temperatureDistribution.png')
 if mesh_type == 'non-equidistant':
-    plt.savefig('task1/Figures/non_equidistant/temperatureDistribution.png')
+    plt.savefig('Figures/non_equidistant/temperatureDistribution.png')
 
+
+# %%
 # Plot residual convergence
 plt.figure()
 plt.title('Value T at x = %.2f y = %.2f'%(nodeX[certain_T_loc],nodeY[certain_T_loc]))
@@ -425,13 +412,13 @@ plt.ylabel('Temperature')
 resLength = np.arange(0,len(certain_T),1)
 plt.plot(resLength, certain_T)
 plt.grid()
-plt.show()
 
 if mesh_type == 'equidistant':
-    plt.savefig('task1/Figures/equidistant/Certain_T.png')
+    plt.savefig('Figures/equidistant/Certain_T.png')
 if mesh_type == 'non-equidistant':
-    plt.savefig('task1/Figures/non_equidistant/Certain_T.png')
+    plt.savefig('Figures/non_equidistant/Certain_T.png')
 
+# %%
 # Plot residual convergence
 plt.figure()
 plt.title('Residual convergence')
@@ -441,32 +428,33 @@ resLength = np.arange(0,len(res),1)
 plt.plot(resLength, res)
 plt.grid()
 plt.yscale('log')
-plt.show()
+
 if mesh_type == 'equidistant':
-    plt.savefig('task1/Figures/equidistant/residualconvergence.png')
+    plt.savefig('Figures/equidistant/residualconvergence.png')
 if mesh_type == 'non-equidistant':
-    plt.savefig('task1/Figures/non_equidistant/residualconvergence.png')
+    plt.savefig('Figures/non_equidistant/residualconvergence.png')
 
 
+# %%
 # Plot the heat rate F
 plt.figure()
 plt.title('Heat rate F in and out of the body')
 plt.xlabel('Iterations')
 plt.ylabel('Heat rate [-]')
 resLength = np.arange(0,len(F_vals),1)
-plt.plot(resLength, F_vals)
-plt.plot(resLength, F_out_vals)
+plt.plot(resLength[20:], F_vals[20:])
+plt.plot(resLength[20:], F_out_vals[20:])
 plt.legend(['F_in', 'F_out'])
 plt.grid()
-plt.show()
+
 
 if mesh_type == 'equidistant':
-    plt.savefig('task1/Figures/equidistant/heat_rate.png')
+    plt.savefig('Figures/equidistant/heat_rate.png')
 if mesh_type == 'non-equidistant':
-    plt.savefig('task1/Figures/non_equidistant/heat_rate.png')
+    plt.savefig('Figures/non_equidistant/heat_rate.png')
 
-
-# Plot the heat rate error
+# %%
+# Plot the heat rate F
 plt.figure()
 plt.title('Heat rate error $(F_{in}-F_{out})/F_{in}$')
 plt.xlabel('Iterations')
@@ -477,17 +465,18 @@ plt.yscale('log')
 plt.hlines(y = error_vals[-1],xmax=len(error_vals),xmin=0, colors='r', linestyles='dashed')
 plt.grid()
 plt.legend(['Error', 'Error convergence = %.2f%%'%error_vals[-1]], loc='upper right')
-plt.show()
+
+
 if mesh_type == 'equidistant':
-    plt.savefig('task1/Figures/equidistant/heat_rate_error.png')
+    plt.savefig('Figures/equidistant/heat_rate_conv.png')
 if mesh_type == 'non-equidistant':
-    plt.savefig('task1/Figures/non_equidistant/heat_rate_error.png')
+    plt.savefig('Figures/non_equidistant/heat_rate_conv.png')
 
-
+# %%
 # Plot heat flux vectors in nodes (not at boundaries)
 qX = np.zeros((nI,nJ))*nan # Array for heat flux in x-direction, in nodes
 qY = np.zeros((nI,nJ))*nan # Array for heat flux in y-direction, in nodes
-for i in range(1,nI-1):
+for i in range(0,nI-1):
     for j in range(1,nJ-1):
             qX[i,j] = -k[i,j]*dT_dx[i,j]
             qY[i,j] = -k[i,j]*dT_dy[i,j]
@@ -500,12 +489,12 @@ plt.quiver(nodeX, nodeY, qX, qY, color="black")
 cbar=plt.colorbar(tempmap)
 cbar.set_label('Temperature [K]')
 plt.tight_layout()
-plt.show()
 if mesh_type == 'equidistant':
-    plt.savefig('task1/Figures/equidistant/heatflux.png')
+    plt.savefig('Figures/equidistant/heatflux.png')
 if mesh_type == 'non-equidistant':
-    plt.savefig('task1/Figures/non_equidistant/heatflux.png')
+    plt.savefig('Figures/non_equidistant/heatflux.png')
 
+# %%
 
 # Plot heat flux vectors NORMAL TO WALL boundary face centers ONLY (not in corners)
 # Use temperature gradient just inside domain (note difference to set heat flux)
@@ -514,28 +503,28 @@ qY = np.zeros((nI,nJ))*nan # Array for heat flux in y-direction, in nodes
 for j in range(1,nJ-1):
     # west boundary
     i = 0
-    qX[i,j] = -k_w[i+1,j]*dT_dx[i+1,j]
+    qX[i,j] = -k_w[i+1,j]*dT_dx[i+1,j]*0
     qY[i,j] = 0
     # East boundary
-    i = nI-2
+    i = -2
     dT_dx_e = (dT_dx[i, j] -  dT_dx[i-1, j])/dx_WP[i,j] *dx_we[i,j]/2 + dT_dx[i, j]
-    i = nI-1
-    qX[i,j] = -k_e[i-1,j]*dT_dx_e
+    i = -1
+    qX[i,j] = -k[i,j]*dT_dx[i,j]
     qY[i,j] = 0
 for i in range(1,nI-1):
     # south boundary
     j = 1
-    dT_dy_s = (dT_dy[i, j] -  dT_dy[i, j+1])/dy_PN[i,j] * dy_sn[i,j]/2 + dT_dy[i, j]
+    dT_dy_s = (dT_dy[i, j] -  dT_dy[i, j+1])/dy_PN[i,j] * dy_SP[i,j] + dT_dy[i, j]
     j = 0
     qX[i,j] = 0
-    qY[i,j] = -k_s[i,j+1]*dT_dy_s
+    qY[i,j] = -k[i,j]*dT_dy[i,j]
 
     # North boundary
-    j = nJ-2
+    j = -2
     dT_dy_n = (dT_dy[i, j] -  dT_dy[i, j-1])/dy_SP[i,j] *dy_sn[i,j]/2 + dT_dy[i, j]
-    j = nJ-1
+    j = -1
     qX[i,j] = 0
-    qY[i,j] = -k_n[i,j-1]*dT_dy_n
+    qY[i,j] = -k[i,j]*dT_dy[i,j]
 plt.figure()
 plt.xlabel('x [m]')
 plt.ylabel('y [m]')
@@ -548,10 +537,14 @@ plt.quiver(nodeX, nodeY, qX, qY, color="black")
 plt.xlim(-0.5*L, 3/2*L)
 plt.ylim(-0.5*H, 3/2*H)
 plt.tight_layout()
-plt.show()
 
+
+plt.tight_layout()
 if mesh_type == 'equidistant':
-    plt.savefig('task1/Figures/equidistant/wall_normal_heat_flux.png')
+    plt.savefig('Figures/equidistant/wall_normal_heat_flux.png')
 if mesh_type == 'non-equidistant':
-    plt.savefig('task1/Figures/non_equidistant/wall_normal_heat_flux.png')
+    plt.savefig('Figures/non_equidistant/wall_normal_heat_flux.png')
+
+
+
 
