@@ -180,14 +180,6 @@ for j in range(1,nJ-1):
 for i in range(1,nI-1):
     j = 0
     Su[i,j+1] = dx_we[i,j+1]* q_in
-    T[i, j] = T[i,j+1] + (q_in/(gamma * dx_we[i,j+1])) * dy_SP[i,j+1]
-
-# west wall
-for j in range(1,nJ-1):
-    i = 1
-    if u[i-1,j] ==0:
-        Su[i,j] = T[i-1,j]*dy_sn[i,j]/dx_WP[i,j] * gamma
-        Sp[i,j] = -dy_sn[i,j]/dx_WP[i,j] * gamma
 
 # north wall
 for i in range(1,nI-1):
