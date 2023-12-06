@@ -9,7 +9,7 @@
 
 # Clear all variables when running entire code:
 from IPython import get_ipython
-get_ipython().run_line_magic('reset', '-sf')
+# get_ipython().run_line_magic('reset', '-sf')
 # Packages needed
 import numpy as np
 import matplotlib.pyplot as plt
@@ -41,14 +41,14 @@ caseID = 20     # Your Task 2 case number
 
 # Solver inputs
 linSol_pp      = 'Gauss-Seidel' # Either 'Gauss-Seidel' or 'TDMA'
-scheme         = 'FOU_CD'       # Either 'FOU_CD' or 'Hybrid'
+scheme         = 'Hybrid'       # Either 'FOU_CD' or 'Hybrid'
 nIter          = 1000           # Maximum number of SIMPLE iterations
 nLinSolIter_pp = 10             # Number of linear solver iterations for pp-equation
 nLinSolIter_uv = 3              # Number of Gauss-Seidel iterations for u/v-equations
 resTolerance   = 0.00001        # Set convergence criteria for residuals
 alphaUV        = 0.7            # Under-relaxation factor for u and v
 alphaP         = 0.3            # Under-relaxation factor for p
-RhieChow       = 'nonEquiCorr'  # Either 'nonEquiCorr', 'equiCorr' or 'noCorr'
+RhieChow       = 'noCorr'  # Either 'nonEquiCorr', 'equiCorr' or 'noCorr'
 pRef_i = 1 # P=0 in some internal node (1..nI-2, not on boundary)
 pRef_j = 1 # P=0 in some internal node (1..nJ-2, not on boundary)
 
@@ -112,14 +112,14 @@ aW_uv  = np.zeros((nI,nJ))*nan  # West coefficient for velocities, in nodes
 aN_uv  = np.zeros((nI,nJ))*nan  # North coefficient for velocities, in nodes
 aS_uv  = np.zeros((nI,nJ))*nan  # South coefficient for velocities, in nodes
 aP_uv  = np.zeros((nI,nJ))*nan  # Central coefficient for velocities, in nodes
-Su_u   = np.zeros((nI,nJ))*nan  # Source term for u-velocity, in nodes
-Su_v   = np.zeros((nI,nJ))*nan  # Source term for v-velocity, in nodes
+Su_u   = np.zeros((nI,nJ))  # Source term for u-velocity, in nodes
+Su_v   = np.zeros((nI,nJ))  # Source term for v-velocity, in nodes
 aE_pp  = np.zeros((nI,nJ))*nan  # East coefficient for p', in nodes
 aW_pp  = np.zeros((nI,nJ))*nan  # West coefficient for p', in nodes
 aN_pp  = np.zeros((nI,nJ))*nan  # North coefficient for p', in nodes
 aS_pp  = np.zeros((nI,nJ))*nan  # South coefficient for p', in nodes
 aP_pp  = np.zeros((nI,nJ))*nan  # Central coefficient for p', in nodes
-Su_pp  = np.zeros((nI,nJ))*nan  # Source term for p', in nodes
+Su_pp  = np.zeros((nI,nJ))  # Source term for p', in nodes
 u      = np.zeros((nI,nJ))*nan  # U-velocity, in nodes
 v      = np.zeros((nI,nJ))*nan  # V-velocity, in nodes
 p      = np.zeros((nI,nJ))*nan  # Pressure, in nodes (lower-case p)
@@ -221,10 +221,10 @@ for i in range(1, nI-1):
 # Keep 'nan' where values are not needed!
 for i in range(1, nI-1):
     for j in range(1, nJ-1):
-        fxe = 0.5*dx_we[i,j] / dx_PE[i,j]
-        fxw = 0.5*dx_we[i,j] / dx_WP[i,j]
-        fyn = 0.5*dy_sn[i,j] / dy_PN[i,j]
-        fys = 0.5*dy_sn[i,j] / dy_SP[i,j]
+        fxe[i,j] = 0.5*dx_we[i,j] / dx_PE[i,j]
+        fxw[i,j] = 0.5*dx_we[i,j] / dx_WP[i,j]
+        fyn[i,j] = 0.5*dy_sn[i,j] / dy_PN[i,j]
+        fys[i,j] = 0.5*dy_sn[i,j] / dy_SP[i,j]
 
 # Constant contributions to mom.eq. discretization:
 # Keep 'nan' where values are not needed!
@@ -293,30 +293,55 @@ for iter in range(nIter):
     # FOR TASK 2 CASES, MAKE SURE TO TREAT INLETS/OUTLETS CORRECTLY
     # (USE THE outlet ARRAY TO IDENTIFY WHERE OUTLETS ARE LOCATED)
     # NEGLECT CONTINUITY ERROR IN CENTRAL COEFFICIENT!
+    for i in range(1,nI-1):
+        for j in range(1,nJ-1):
+            De[i,j] = dy_sn[i,j]*mu * dx_we[i,j]/(2*dx_PE[i,j]**2)
+            Dw[i,j] = dy_sn[i,j]*mu * dx_we[i,j]/(2*dx_WP[i,j]**2)
+            Dn[i,j] = dx_we[i,j]*mu * dy_sn[i,j]/(2*dy_PN[i,j]**2)
+            Ds[i,j] = dx_we[i,j]*mu * dy_sn[i,j]/(2*dy_SP[i,j]**2)
+            
+            
+            Fe[i,j] = rho  * dy_sn[i,j] * (u[i+1,j]*fxe[i,j] +(1-fxe[i,j])*u[i,j])
+            Fw[i,j] = rho  * dy_sn[i,j] * (u[i-1,j]*fxw[i,j] +(1-fxw[i,j])*u[i,j])
+            Fn[i,j] = rho  * dx_we[i,j] * (v[i,j+1]*fyn[i,j] +(1-fyn[i,j])*v[i,j])
+            Fs[i,j] = rho  * dx_we[i,j] * (v[i,j-1]*fys[i,j] +(1-fys[i,j])*v[i,j])
+
     match scheme:
         case 'FOU_CD':
             # ADD CODE HERE
             pass # So rest of code can be used before implementing it
         case 'Hybrid':
-            # ADD CODE HERE
-            pass # So rest of code can be used before implementing it
+            for i in range(1,nI-1):
+                for j in range(1,nJ-1):
+                    
+                    
+                    aE_uv[i,j] = max([-Fe[i,j],De[i,j]-fxe[i,j]*Fe[i,j], 0])
+                    aW_uv[i,j] = max([Fw[i,j],Dw[i,j]+fxw[i,j]*Fw[i,j], 0])
+                    aN_uv[i,j] = max([-Fn[i,j],Dn[i,j]-fyn[i,j]*Fn[i,j], 0])
+                    aS_uv[i,j] = max([Fs[i,j],Ds[i,j]+fys[i,j]*Fs[i,j], 0])
+                    aP_uv[i,j] = aE_uv[i,j] + aW_uv[i,j] + aN_uv[i,j] + aS_uv[i,j]
+            
         case _:
             sys.exit("Improper scheme!")
 
     # Momentum equation source terms and implicit under-relaxation
     for i in range(1,nI-1):
         for j in range(1,nJ-1):
-            # ADD CODE HERE
+            Su_u[i,j] = 0.5*(p[i-1,j]-p[i+1,j])*dy_sn[i,j] + ((1-alphaUV)*aP_uv[i,j]/alphaUV)*u[i,j]
+            Su_v[i,j] = 0.5*(p[i,j-1]-p[i,j+1])*dx_we[i,j] + ((1-alphaUV)*aP_uv[i,j]/alphaUV)*v[i,j]
 
     # Solve u-mom. eq. a number of Gauss-Seidel loops:
     # JUST ADAPT YOUR GAUSS-SEIDEL SOLVER FROM TASK 2
     for linSolIter in range(nLinSolIter_uv):   
-        # ADD CODE HERE
+        u[i, j] = ((aW_uv[i, j] * u[i - 1, j] + aE_uv[i, j] * u[i + 1, j] + aS_uv[i, j] \
+                        * u[i, j - 1] + aN_uv[i, j] * u[i, j + 1] + Su_u[i,j] ) / aP_uv[i, j]) * alphaUV
 
     # Solve v-mom. eq. a number of Gauss-Seidel loops:
     # JUST ADAPT YOUR GAUSS-SEIDEL SOLVER FROM TASK 2
     for linSolIter in range(nLinSolIter_uv):   
-        # ADD CODE HERE
+        v[i, j] = ((aW_uv[i, j] * v[i - 1, j] + aE_uv[i, j] * v[i + 1, j] + aS_uv[i, j] \
+                        * v[i, j - 1] + aN_uv[i, j] * v[i, j + 1] + Su_v[i,j] ) / aP_uv[i, j]) * alphaUV
+
 
     # Update OUTLET velocity and face fluxes for Task 2 cases only:
     # NO NEED TO CHANGE ANYTHING HERE
@@ -392,18 +417,30 @@ for iter in range(nIter):
     # Calculate face fluxes using Rhie & Chow (or not Rhie & Chow)
     # DO NOT TOUCH BOUNDARY FLUXES, WHICH ARE SET WITH BOUNDARY CONDITIONS!
     # A RHIE & CHOW CORRECTION TERM BASED ON EQUIDISTANT MESH AND
-    # CONSTANT aP_uv GIVES MORE SIMILAR RESULTS AS REFERECE DATA,
+    # CONSTANT aP_uv GIVES MORE SIMILAR RESULTS AS REFERENCE DATA,
     # BUT YOU SHOULD (ALSO) IMPLEMENT IT FOR A NON-EQUIDISTANT MESH (COMPULSORY)
     # ALSO IMPLEMENT WITHOUT RHIE & CHOW, TO SEE CHECKERBOARD IN TASK 2 CASES
     # THE BASE INTERPOLATION SHOULD ALWAYS BE FOR A NON-EQUIDISTANT MESH!
+    ue = np.zeros_like(u)
+    uw = np.zeros_like(u)
+    vn = np.zeros_like(u)
+    vs = np.zeros_like(u)
     match RhieChow:
+
         case 'noCorr':
+            for i in range(1,nI-1):
+                for j in range(1,nJ-1):
+                    ue[i,j] = fxe[i,j]*(u[i+1,j]*fxe[i,j] +(1-fxe[i,j])*u[i,j])
+                    uw[i,j] = fxw[i,j]*(u[i-1,j]*fxw[i,j] +(1-fxw[i,j])*u[i,j])
+                    vn[i,j] = fyn[i,j]*(v[i,j+1]*fyn[i,j] +(1-fyn[i,j])*v[i,j])
+                    vs[i,j] = fys[i,j]*(v[i,j+1]*fys[i,j] +(1-fys[i,j])*v[i,j])
+
             # No Rhie & Chow correction:
             # Easiest to implement, so start with this.
             # Actually gives good comparison with reference data for cavity case.
             # Gives slightly fluctuating fields for cavity, and checkerboarding for Task 2 cases.
             # ADD CODE HERE
-            pass # So rest of code can be used before implementing it
+            # So rest of code can be used before implementing it
         case 'equiCorr':
             # Equidistant implementation of correction term:
             # Gives best comparison with reference data (which may have been derived like this).
@@ -422,7 +459,24 @@ for iter in range(nIter):
     # Note that de, dw, dn, ds are useful also later, so make sure to keep them.
     for i in range(1,nI-1):
         for j in range(1,nJ-1):
-            # ADD CODE HERE
+            de[i,j] = dy_sn[i,j] / (fxe[i,j]*(aP_uv[i+1,j] - aP_uv[i,j]) + aP_uv[i,j])
+            dw[i,j] = dy_sn[i,j] / (fxw[i,j]*(aP_uv[i-1,j] - aP_uv[i,j]) + aP_uv[i,j])
+            dn[i,j] = dx_we[i,j] / (fyn[i,j]*(aP_uv[i,j+1] - aP_uv[i,j]) + aP_uv[i,j])
+            ds[i,j] = dx_we[i,j] / (fys[i,j]*(aP_uv[i,j-1] - aP_uv[i,j]) + aP_uv[i,j])
+            d = dy_sn[i,j] /aP_uv[i,j]
+            ue_p = de[i,j]* (pp[i,j] - pp[i+1,j])
+            uw_p = dw[i,j]* (pp[i-1,j] - pp[i,j])
+            vn_p = dn[i,j]* (pp[i,j] - pp[i,j+1])
+            vs_p = ds[i,j]* (pp[i,j-1] - pp[i,j])
+            
+
+            aE_pp[i,j] = de[i,j] *rho * dy_sn[i,j]
+            aW_pp[i,j] = dw[i,j] *rho * dy_sn[i,j]
+            aN_pp[i,j] = dn[i,j] *rho * dx_we[i,j]
+            aS_pp[i,j] = ds[i,j] *rho * dx_we[i,j]
+            aP_pp[i,j] = aE_pp[i,j] + aW_pp[i,j] + aN_pp[i,j] + aS_pp[i,j]
+            Su_pp[i,j] = -dy_sn[i,j]*((rho*(ue[i,j] - ue_p)) - rho*(uw[i,j] - uw_p)) \
+                    -dx_we[i,j]*((rho*(vn[i,j] - vn_p)) - rho*(vs[i,j] - vs_p))             # b'
 
     # Fix pressure by forcing pp to zero, through source terms:
     # MAKES CONVERGENCE POOR, SO BETTER TO SKIP IT FOR NOW. TRY IF YOU LIKE
@@ -433,10 +487,13 @@ for iter in range(nIter):
     pp[:,:] = 0
     match linSol_pp:
         case 'Gauss-Seidel':
-            # JUST ADAPT YOUR GAUSS-SEIDEL SOLVER FROM TASK 2
+            # JUST ADAPT YOUR Gauss-Seidel SOLVER FROM TASK 2
             for linSolIter in range(nLinSolIter_pp):
-                # ADD CODE HERE
-                pass # So rest of code can be used before implementing it
+                for i in range(1,nI-1):
+                    for j in range(1,nJ-1):
+                        pp[i, j] = ((aW_pp[i, j] * pp[i - 1, j] + aE_pp[i, j] * pp[i + 1, j] + aS_pp[i, j] \
+                                    * pp[i, j - 1] + aN_pp[i, j] * pp[i, j + 1] + Su_pp[i,j] ) / aP_pp[i, j])
+
         case 'TDMA':
             # JUST ADAPT YOUR TDMA SOLVER FROM TASK 2
             for linSolIter in range(nLinSolIter_pp):
@@ -455,35 +512,55 @@ for iter in range(nIter):
     pp[-1,:] = pp[-2,:]
 
     # Correct pressure, using explicit under-relaxation
-    # ADD CODE HERE
+    for i in range(1,nI-1):
+        for j in range(1,nJ-1):
+            p[i,j] = p[i,j] + alphaP*pp[i,j]
     # Extrapolate pressure to boundaries, using constant gradient,
     # required to get correct Suu in u-mom. equation!
-    # ADD CODE HERE
+    for i in range(1,nI-1):
+        j = 0
+        p[i,j] = p[i,j+1] + dy_SP[i,j+1]* (p[i,j+1] - p[i,j+2])/dy_PN[i,j+1]
+        j = -1
+        p[i,j] = p[i,j-1] + dy_PN[i,j-1]* (p[i,j-1] - p[i,j-2])/dy_SP[i,j-1]
+    for j in range(1,nJ-1):
+        i = 0
+        p[i,j] = p[i+1,j] + dx_WP[i+1,j]* (p[i+1,j] - p[i+2,j])/dx_PE[i+1,j]
+        i = -1
+        p[i,j] = p[i-1,j] + dx_PE[i-1,j]* (p[i-1,j] - p[i-2,j])/dx_WP[i-1,j]
     # Interpolate pressure to corners
     # ADD CODE HERE
 
     # Correct velocity components using pp solution (DO NOT TOUCH BOUNDARIES!)
     for i in range(1,nI-1):
         for j in range(1,nJ-1):  
-            # ADD CODE HERE
+            du = dy_sn[i,j] * aP_uv[i,j]
+            dy = dx_we[i,j] * aP_uv[i,j]
+            ppw = (pp[i-1,j]*fxw[i,j] + (1-fxw[i,j])*pp[i,j])
+            ppe = (pp[i+1,j]*fxe[i,j] + (1-fxe[i,j])*pp[i,j])
+            pps = (pp[i,j-1]*fys[i,j] + (1-fys[i,j])*pp[i,j])
+            ppn = (pp[i,j+1]*fyn[i,j] + (1-fyn[i,j])*pp[i,j])
+            u[i,j] = u[i,j] + du*(ppw-ppe)
+            v[i,j] = v[i,j] + dy*(pps-ppn)
+
 
     # Correct face fluxes using pp solution (DO NOT TOUCH BOUNDARIES!)
     for i in range(1,nI-1):
         for j in range(1,nJ-1):  
-            # ADD CODE HERE
+            pass
 
     # Compute residuals
+    F = uWall**2*L
     res_u.append(0) # U momentum residual
     res_v.append(0) # V momentum residual
     res_c.append(0) # Continuity residual
     for i in range(1,nI-1):
         for j in range(1,nJ-1):
  
-            res_u[-1] += # ADD CODE HERE
+            res_u += [1/F*abs(aP_uv[i,j]*u[i,j] - (aE_uv[i,j]*u[i+1,j] + aW_uv[i,j]*u[i-1,j] + aS_uv[i,j]*u[i,j-1] + aN_uv[i,j]*u[i,j+1] + Su_u[i,j]))]
                 
-            res_v[-1] += # ADD CODE HERE
+            res_v += [1/F*abs(aP_uv[i,j]*v[i,j] - (aE_uv[i,j]*v[i+1,j] + aW_uv[i,j]*v[i-1,j] + aS_uv[i,j]*v[i,j-1] + aN_uv[i,j]*v[i,j+1] + Su_v[i,j]))]
             
-            res_c[-1] += # ADD CODE HERE
+            res_c += [1/F*abs(aP_pp[i,j] * pp[i,j] - (aE_pp[i,j]*pp[i+1,j] + aW_pp[i,j]*pp[i-1,j] + aS_pp[i,j]*pp[i,j-1] + aN_pp[i,j]*pp[i,j+1] +Su_pp[i,j]))]
 
     print('Iter: %5d, resU = %.5e, resV = %.5e, resCon = %.5e'\
         % (iter, res_u[-1], res_v[-1], res_c[-1]))

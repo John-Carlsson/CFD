@@ -23,12 +23,12 @@ import os # For saving plots
 #===================== Inputs =====================
 
 # Geometric and mesh inputs (mesh is read from file)
-grid_type = 'coarse' # Either 'coarse' or 'fine'
+grid_type = 'fine' # Either 'coarse' or 'fine'
 caseID    =   20       # Your case number to solve
 
 # Solver inputs
 nIter  = 6000    # set maximum number of iterations
-resTol = 0.001 # set convergence criteria for residuals
+resTol = 0.0001 # set convergence criteria for residuals
 solver = 'TDMA'  # Either Gauss-Seidel or TDMA
 
 # Physical properties
@@ -161,15 +161,15 @@ T = np.ones_like(T)*0# for i in range(0,nI):
 
 # Inlets (found by velocity into domain), walls (found by zero velocity):
 for i in range(1,nI-1):
-    j = nJ-1
-    if v[i-1,j] != 0:
+    j = -1
+    if v[i,j] < 0:
         T[i,j] = 10
 
     j = 0
     
 
 for j in range(1,nJ-1):
-    i = nI-1
+    i = -1
 
     i = 0
     if u[i,j] == 0:
@@ -180,6 +180,12 @@ for j in range(1,nJ-1):
 for i in range(1,nI-1):
     j = 0
     Su[i,j+1] = dx_we[i,j+1]* q_in
+
+
+# west wall
+for j in range(1,nJ-1):
+    i = 1
+
 
 # north wall
 for i in range(1,nI-1):
@@ -229,32 +235,17 @@ for i in range(1,nI-1):
         Dw[i,j] = gamma/dx_WP[i,j] * dy_sn[i,j]
         Dn[i,j] = gamma/dy_PN[i,j] * dx_we[i,j]
         Ds[i,j] = gamma/dy_SP[i,j] * dx_we[i,j]
+        
         fxe = 0.5*dx_we[i,j] / dx_PE[i,j]
         fxw = 0.5*dx_we[i,j] / dx_WP[i,j]
         fyn = 0.5*dy_sn[i,j] / dy_PN[i,j]
         fys = 0.5*dy_sn[i,j] / dy_SP[i,j]
         
-        fxe = interpolate(u[i,j],u[i+1,j],dx_we[i,j],dx_we[i+1,j])
-        fxw = interpolate(u[i,j],u[i-1,j],dx_we[i,j],dx_we[i-1,j])
-        fyn = interpolate(v[i,j],v[i,j+1],dy_sn[i,j],dy_sn[i,j+1])
-        fys = interpolate(v[i,j],v[i,j-1],dy_sn[i,j],dy_sn[i,j-1])
-        
-        Fe[i,j] = rho * fxe * dy_sn[i,j]
-        Fw[i,j] = rho * fxw * dy_sn[i,j]
-        Fn[i,j] = rho * fyn * dx_we[i,j]
-        Fs[i,j] = rho * fys * dx_we[i,j]
+        Fe[i,j] = rho  * dy_sn[i,j] * (u[i+1,j]*fxe +(1-fxe)*u[i,j])
+        Fw[i,j] = rho  * dy_sn[i,j] * (u[i-1,j]*fxw +(1-fxw)*u[i,j])
+        Fn[i,j] = rho  * dx_we[i,j] * (v[i+1,j]*fyn +(1-fyn)*v[i,j])
+        Fs[i,j] = rho  * dx_we[i,j] * (v[i-1,j]*fys +(1-fys)*v[i,j])
 
-# boundary adjacent nodes, no need to intterpolate velocities
-for j in range(1,nJ-1):
-    i = nI-2
-    Fe[i,j] = rho*u[i+1,j]* dy_sn[i,j]
-    i = 1
-    Fw[i,j] = rho*u[i-1,j] * dy_sn[i,j]
-for i in range(1,nI-1):
-    j = nJ-2
-    Fn[i,j] = rho*v[i,j+1]* dy_sn[i,j]
-    j = 1
-    Fs[i,j] = rho*v[i,j-1]* dy_sn[i,j]
 
 # %%
 # Calculate constant Hybrid scheme coefficients (not taking into account boundary conditions)
@@ -328,6 +319,8 @@ certain_T = []
 from datetime import datetime
 glob_imbal = []
 start = datetime.now()
+dT_dx = np.zeros((nI, nJ))
+dT_dy = np.zeros((nI, nJ))
 for iter in range(nIter): 
     # Solve for T using Gauss-Seidel
     if solver == 'Gauss-Seidel':
@@ -407,7 +400,7 @@ for iter in range(nIter):
         # South wall:
         j = 0
         if v[i,j] == 0:
-            T[i, j] = T[i,j+1] + (q_in/(gamma * dx_we[i,j+1])) * dy_SP[i,j+1]
+            T[i, j] = T[i,j+1] 
     
     # Copy T to outlets (where homogeneous Neumann should always be applied):
     for j in range(1,nJ-1):
@@ -445,39 +438,21 @@ for iter in range(nIter):
             r0 += abs(aP[i,j]*T[i,j] - (aW[i,j]*T[i-1,j] + aE[i,j]*T[i+1,j] + aN[i,j]*T[i,j+1] + aS[i,j]*T[i,j-1] + Su[i,j]))
 
     # Global convective and diffusive heat rates (divided by cp), for normalization:
-    Fin = 0
-    Fout = 0
-    Din = 0
-    Dout = 0    
-    # Get the temperature gradient in cells
-    dT_dx = np.zeros((nI, nJ))
-    dT_dy = np.zeros((nI, nJ))
-    # for i in range(1,nI-1):
-        # for j in range(1,nJ-1):
-        #     dT_dx[i, j] = (T[i+1, j] - T[i-1, j]) / (dx_WP[i, j] + dx_PE[i,j])
-        #     dT_dy[i, j] = (T[i, j+1] - T[i, j-1]) / (dy_SP[i, j]+ dy_PN[i,j])
-
-    dT_dx, dT_dy = np.gradient(T,nodeX[:,0],nodeY[0,:])
     
+    # Get the temperature gradient in cells
+    
+    for i in range(1,nI-1):
+        for j in range(1,nJ-1):
+            dT_dx[i, j] = (T[i+1, j] - T[i-1, j]) / (dx_WP[i, j] + dx_PE[i,j])
+            dT_dy[i, j] = (T[i, j+1] - T[i, j-1]) / (dy_SP[i, j]+ dy_PN[i,j])
+
+    # dT_dx, dT_dy = np.gradient(T,nodeX[:,0],nodeY[0,:])
     inlet = 0
     outlet = 0
-    
-    # Add positive source terms to F and negative to F_out
-    # for i in range(1,nI-1):
-    #     for j in range(1,nJ-1):
-    #         if Sp[i,j]*T[i,j] > 0:
-    #             inlet+= abs(Sp[i,j]*T[i,j])
-    #         else:
-    #             outlet += abs(Sp[i,j]*T[i,j])
-    #         if Su[i,j] > 0:
-    #             inlet += abs(Su[i,j])
-    #         else:
-    #             outlet += abs(Su[i,j])
-
     # south and north
     for i in range(1,nI-1):
         j = 1
-        inlet += abs(gamma * dx_we[i, j] * dT_dy[i,j-1])
+        inlet += Su[i,j]
         
         j = -2
         inlet += abs(rho*v[i,j+1]*dx_we[i,j]*T[i,j+1]) 
@@ -486,10 +461,9 @@ for iter in range(nIter):
     for j in range(1,nJ-1):
         i = 1
         if u[i-1,j] == 0:
-            inlet += abs(gamma * dy_sn[i, j] * dT_dx[i-1,j])
+            inlet += abs(gamma * dy_sn[i, j] * (T[i,j]-T[i-1,j])/dx_WP[i,j])
 
         outlet += abs(rho*u[i-1,j]*dy_sn[i,j]*T[i-1,j]) 
-        
 
         i = -2
         outlet += abs(rho*u[i+1,j]*dy_sn[i,j]*T[i+1,j]) 
@@ -598,25 +572,25 @@ qY = np.zeros((nI,nJ))*nan # Array for heat flux in y-direction, in nodes
 for j in range(1,nJ-1):
     # west boundary
     i = 0
-
-    qX[i,j] = -gamma*dy_sn[i+1,j]*dT_dx[i,j]
+    qX[i,j] = -k*(T[i+1,j]-T[i,j])/ dx_WP[i+1,j]
     qY[i,j] = 0
+
     # East boundary
     i = -1
-    qX[i,j] = -k*dT_dx[i,j]
+    qX[i,j] = 0
     qY[i,j] = 0
 for i in range(1,nI-1):
     # south boundary
     j = 0
 
     qX[i,j] = 0
-    qY[i,j] = -gamma*dx_we[i,j+1]*dT_dy[i,j]
+    qY[i,j] = q_in*Cp
 
     # North boundary
     j = -1
 
     qX[i,j] = 0
-    qY[i,j] = -gamma*dx_we[i,j+1]*dT_dy[i,j]
+    qY[i,j] = 0#-gamma*dx_we[i,j+1]*dT_dy[i,j]
 plt.figure()
 plt.xlabel('x [m]')
 plt.ylabel('y [m]')
