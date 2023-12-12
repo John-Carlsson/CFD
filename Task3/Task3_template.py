@@ -445,12 +445,26 @@ for iter in range(nIter):
             # Equidistant implementation of correction term:
             # Gives best comparison with reference data (which may have been derived like this).
             # ADD CODE HERE
-            pass # So rest of code can be used before implementing it
+            for i in range(1,nI-1):
+                for j in range(1,nJ-1):
+                    if i != -2:
+                        ue[i,j] = 0.5*(u[i+1,j] + u[i,j]) + 
+                    if i != 1:
+                        uw[i,j] =
+                    if j != -2:
+                        vn[i,j] =
+                    if j != 1:
+                        vs[i,j] =
+
         case 'nonEquiCorr':
             # Non-equidistant implementation of everything:
             # Gives ok comparison with reference data.
             # ADD CODE HERE
-            pass # So rest of code can be used before implementing it
+            ue[i,j] =
+            uw[i,j] =
+            vn[i,j] =
+            vs[i,j] =
+            
         case _:
             sys.exit("Improper RhieChow choice!")
     
